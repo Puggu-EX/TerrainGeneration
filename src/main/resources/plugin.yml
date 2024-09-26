@@ -1,0 +1,4 @@
+name: TerrainGeneration
+version: '${project.version}'
+main: com.example.terraingeneration.TerrainGeneration
+api-version: '1.21'
