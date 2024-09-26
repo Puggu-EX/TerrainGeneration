@@ -1,0 +1,5 @@
+/target/
+/.idea/
+/src/main/java/com/example/terraingeneration/MapNode.java
+/src/main/resources/tiles.json
+/src/main/java/com/example/terraingeneration/Tile.java
