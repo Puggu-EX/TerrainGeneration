@@ -12,15 +12,22 @@ import org.bukkit.inventory.ItemStack;
 import org.bukkit.plugin.java.JavaPlugin;
 import org.bukkit.util.RayTraceResult;
 
+import java.util.Objects;
 import java.util.Random;
 import java.util.Vector;
 
 public final class TerrainGeneration extends JavaPlugin implements Listener {
     private long lastTimeUsed = 0;
+    final static int tileSize = 7;
+    final static int mapHeight = 101;
+    final static int mapWidth = 101;
+    final static int pathLength = 100;
 
     @Override
     public void onEnable() {
         this.getServer().getPluginManager().registerEvents(this, this);
+
+        Objects.requireNonNull(this.getCommand("gen")).setExecutor(new CommandGenerate());
 
         if (getDataFolder().exists()) {
             TileHandler.loadTiles(getDataFolder(), "tiles.json");
@@ -43,33 +50,26 @@ public final class TerrainGeneration extends JavaPlugin implements Listener {
             if (ray != null){
                 Block hitBlock = ray.getHitBlock();
                 if (hitBlock != null){
-                    generateTerrain(hitBlock.getLocation().add(0, 1, 0));
+                    int[] path = generatePath(pathLength);
+                    generateTerrain(hitBlock.getLocation().add(0, 1, 0), path);
                 }
             }
             lastTimeUsed = currentTime;
         }
     }
 
-    int tileSize = 7;
-    int mapHeight = 101;
-    int mapWidth = 101;
-    int pathLength = 100;
 
-    public void generateTerrain(Location location) {
+    public static void generateTerrain(Location location, int[] path) {
+        // Tile Names
         String[] keys = TileHandler.getTiles().keySet().toArray(new String[0]);
 
         // Worst case (most stone) is every block is a dead-end which shouldn't happen (34/49 blocks are stone)
         // Best case (fewer stone) is every block is ____ (28/49 blocks are stone)
         Vector<Location> stoneLocations = new Vector<>(pathLength * 30);
 
-        int[] path = generatePath(pathLength);
-
-        JsonObject tile = TileHandler.getTile(keys[0]);
-//        placeTile(location.clone(), JSONHandler.getLayout(tile));
-//        placeTile(location.clone().add(0, 0, tileSize), JSONHandler.getLayout(tile));
-
+        JsonObject tile;
         Location loc = location.clone();
-        placeTile(loc.clone(), TileHandler.getLayout(tile));
+
 //        loc.getBlock().setType(Material.YELLOW_WOOL);
         for (int i = 1; i < path.length; i++) {
             int prevDirection = path[i - 1];
@@ -95,6 +95,7 @@ public final class TerrainGeneration extends JavaPlugin implements Listener {
             Vector<Location> locations = placeTile(loc.clone(), TileHandler.getLayout(tile));
             stoneLocations.addAll(locations);
         }
+
         // Go to all locations and check to see if stone still exists
         // If so build wall
         for (Location stoneLocation : stoneLocations) {
@@ -106,6 +107,50 @@ public final class TerrainGeneration extends JavaPlugin implements Listener {
         }
     }
 
+//    public static void generatePath(Location startingLocation, int[] path){
+//
+//        String[] keys = TileHandler.getTiles().keySet().toArray(new String[0]);
+//
+//        JsonObject tile = TileHandler.getTile(keys[0]);
+//        Vector<Location> stoneLocations = new Vector<>();
+//
+//        Location loc = startingLocation.clone();
+//        for (int i = 1; i < path.length; i++) {
+//            int prevDirection = path[i - 1];
+//            int nextDirection = path[i];
+//
+//            int determined = determineTile(prevDirection, nextDirection);
+//            if (determined == -1) {
+//                System.out.println("Issue");
+//                return;
+//            }
+//
+//            if (prevDirection == 0) {
+//                loc.add(tileSize, 0, 0);
+//            } else if (prevDirection == 1) {
+//                loc.add(0, 0, tileSize);
+//            } else if (prevDirection == 2) {
+//                loc.add(-tileSize, 0, 0);
+//            } else if (prevDirection == 3) {
+//                loc.add(0, 0, -tileSize);
+//            }
+//
+//            tile = TileHandler.getTile(keys[determined]);
+//            Vector<Location> locations = placeTile(loc.clone(), TileHandler.getLayout(tile));
+//            stoneLocations.addAll(locations);
+//        }
+//
+//        // Go to all locations and check to see if stone still exists
+//        // If so build wall
+//        for (Location stoneLocation : stoneLocations) {
+//            if (stoneLocation.clone().getBlock().getType() == Material.STONE) {
+//                for (int k = 0; k < 4; k++) {
+//                    stoneLocation.add(0, 1, 0).getBlock().setType(Material.STONE);
+//                }
+//            }
+//        }
+//    }
+
     public int[][] generateMap(){
         int[][] map = new int[mapHeight][mapWidth];
         for (int x = 0; x < mapHeight; x++) {
@@ -113,7 +158,6 @@ public final class TerrainGeneration extends JavaPlugin implements Listener {
 
             }
         }
-
         return map;
     }
 
@@ -133,15 +177,10 @@ public final class TerrainGeneration extends JavaPlugin implements Listener {
 
             pathDirection[i] = nextDirection;
         }
-
-//        System.out.print("Path: ");
-//        for (int direction : pathDirection) {
-//            System.out.print(direction + " ");
-//        }
         return pathDirection;
     }
 
-    public Vector<Location> placeTile(Location location, String[][] layout) {
+    public static Vector<Location> placeTile(Location location, String[][] layout) {
         location = location.add(tileSize/2, -1, -tileSize/2);
 //        System.out.println("Placing at: " + location.getBlockX() + " " + location.getBlockY() + " " + location.getBlockZ());
 
@@ -170,7 +209,7 @@ public final class TerrainGeneration extends JavaPlugin implements Listener {
 
     }
 
-    public int determineTile(int prevDirection, int nextDirection) {
+    public static int determineTile(int prevDirection, int nextDirection) {
         // Tile types:
         // 0: North-South, 1: East-West, 2: North-East, 3: North-West, 4: South-East, 5: South-West
 
@@ -192,15 +231,6 @@ public final class TerrainGeneration extends JavaPlugin implements Listener {
         if ((prevDirection == 0 && nextDirection == 3) || (prevDirection == 1 && nextDirection == 2)) {
             return 5; // South-West tile
         }
-
-        System.out.println(prevDirection);
-        System.out.println(nextDirection);
         return -1; // Error or undefined tile
     }
 }
-
-//        System.out.println("Getting tile: " + keys[index]);
-// South = 1, East = 1, North = -1, West = -1
-//        Vector direction = location.getDirection().setY(0).normalize();
-//        int x = (int) Math.round(direction.getX());
-//        int z = (int) Math.round(direction.getZ());
